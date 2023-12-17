@@ -1,4 +1,4 @@
-# 🥞 Stackmon
+# 🥞 Stackmon [![🥞 Stackery Agent Commander](https://github.com/therealsiege/Stackmon/actions/workflows/deploy.yml/badge.svg)](https://github.com/therealsiege/Stackmon/actions/workflows/deploy.yml)
 The agent commander for use with CloudFormation and [Stackery VS Code extension](https://docs.stackery.io/docs/using-stackery/introduction). 
 Maintained for those who still leverage [Stackery](https://docs.stackery.io/docs/using-stackery/introduction) as a serverless dependency.
 
