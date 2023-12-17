@@ -13,6 +13,7 @@ Possible reasons for using this utility:
 ## 🤖 Usage
 
 The fastest way to leverage the agent is to replace your stackery agent commander with the one in this repo. If you'd like more control, the source files are included along with a github action that deploys the lambda.
+
 1. Make and test your changes.
 2. Deploy a zip to S3 and reference it in the Stackmon commander `template.yaml`.
 
