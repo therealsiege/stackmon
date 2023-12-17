@@ -252,7 +252,7 @@ Resources:
                       - Docker Image Builder
       RoleName: Stackery-agent-commander-role
   StackeryAgentCommander:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
       FunctionName: Stackery-agent-commander
       Description: Provisions Stackery custom resources
