@@ -1,0 +1,44 @@
+name: 🥞 Stackery Agent Commander
+on:
+  push:
+    branches:
+      - main
+permissions:
+  actions: write
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  deploy:
+    name: 🚀  Deploy 🥞 Stackery Commander
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: ⬇️ Checkout repo
+        uses: actions/checkout@v2
+      - name: 🔶 Set environment for branch
+        id: environment-set-up
+        run: |
+          if [[ $GITHUB_REF == 'refs/heads/main' ]]; 
+          then echo '::set-output name=ENV::prod' 
+          else echo '::set-output name=ENV::stage' 
+          fi
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.8"
+      - uses: aws-actions/setup-sam@v2
+        with:
+          use-installer: true
+      - uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_1PUTT }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_1PUTT }}
+          aws-region: us-east-1
+      - name: 🚀 🥞 Stackery
+        run: |
+          sam build -t infrastructure/template.yaml
+          sam deploy --no-confirm-changeset --no-fail-on-empty-changeset --stack-name stackery-agent-commander --s3-bucket retrohook-build-files --s3-prefix utils/stackery --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM --region us-east-1

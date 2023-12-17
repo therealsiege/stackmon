@@ -1,0 +1,282 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Stackmon (Stackery Agent Commander resources).
+Outputs:
+  Version:
+    Description: Stackmon (Stackery Agent Commander Version)
+    Value: '2.0.1'
+Parameters:
+  Regions:
+    Type: List<String>
+    Description: List of regions to enable Stackery for (remove regions if they are disabled in your AWS account)
+    Default: us-east-2,us-east-1,us-west-1,us-west-2,ap-south-1,ap-northeast-2,ap-southeast-1,ap-southeast-2,ap-northeast-1,ca-central-1,eu-central-1,eu-west-1,eu-west-2,eu-west-3,eu-north-1,sa-east-1
+Resources:
+  AssetsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: aws:kms
+              KMSMasterKeyID: alias/aws/s3
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+    DeletionPolicy: Retain
+  AssetsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref AssetsBucket
+      PolicyDocument:
+        Id: RequireEncryptionInTransitAndRest
+        Version: 2012-10-17
+        Statement:
+          - Sid: DenyUnencryptedTransport
+            Principal: '*'
+            Action: '*'
+            Effect: Deny
+            Resource:
+              - !Sub ${AssetsBucket.Arn}
+              - !Sub ${AssetsBucket.Arn}/*
+            Condition:
+              Bool:
+                aws:SecureTransport: 'false'
+          - Sid: DenyUnencryptedObjectUploads
+            Principal: '*'
+            Action: s3:PutObject
+            Effect: Deny
+            Resource: !Sub ${AssetsBucket.Arn}/*
+            Condition:
+              'Null':
+                s3:x-amz-server-side-encryption: true
+          - Sid: DenyNonKMSEncryptedObjectUploads
+            Principal: '*'
+            Action: s3:PutObject
+            Effect: Deny
+            Resource: !Sub ${AssetsBucket.Arn}/*
+            Condition:
+              StringNotEquals:
+                s3:x-amz-server-side-encryption: aws:kms
+  CustomResourceProvisionCheckQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      KmsMasterKeyId: alias/aws/sqs
+      MessageRetentionPeriod: 4000
+      QueueName: stackery-custom-resource-provision-check-queue
+      VisibilityTimeout: 30
+  StackeryAgentCommanderRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /stackery/
+      Policies:
+        - PolicyName: Logs
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - !Sub arn:aws:logs:*:${AWS::AccountId}:log-group:/aws/lambda/stackery-agent-commander
+                  - !Sub arn:aws:logs:*:${AWS::AccountId}:log-group:/aws/lambda/stackery-agent-commander:*
+        - PolicyName: CreateRegionalAgentCommanderFunctions
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:CreateFunction
+                  - lambda:DeleteFunction
+                  - lambda:ListTags
+                  - lambda:TagResource
+                  - lambda:UntagResource
+                  - lambda:UpdateFunctionCode
+                  - lambda:UpdateFunctionConfiguration
+                Resource: !Sub arn:aws:lambda:*:${AWS::AccountId}:function:stackery-agent-commander
+              - Effect: Allow
+                Action: iam:PassRole
+                Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/stackery/stackery-agent-commander-role
+              - Effect: Allow
+                Action: s3:GetObject
+                Resource:
+                  - arn:aws:s3:::stackery-prod-us-east-2-agent-commander/*
+                  - arn:aws:s3:::stackery-prod-us-east-1-agent-commander/*
+                  - arn:aws:s3:::stackery-prod-us-west-1-agent-commander/*
+                  - arn:aws:s3:::stackery-prod-us-west-2-agent-commander/*
+                  - arn:aws:s3:::stackery-prod-ap-south-1-agent-commander/*
+                  - arn:aws:s3:::stackery-prod-ap-northeast-2-agent-commander/*
+                  - arn:aws:s3:::stackery-prod-ap-southeast-1-agent-commander/*
+                  - arn:aws:s3:::stackery-prod-ap-southeast-2-agent-commander/*
+                  - arn:aws:s3:::stackery-prod-ap-northeast-1-agent-commander/*
+                  - arn:aws:s3:::stackery-prod-ca-central-1-agent-commander/*
+                  - arn:aws:s3:::stackery-prod-eu-central-1-agent-commander/*
+                  - arn:aws:s3:::stackery-prod-eu-west-1-agent-commander/*
+                  - arn:aws:s3:::stackery-prod-eu-west-2-agent-commander/*
+                  - arn:aws:s3:::stackery-prod-eu-west-3-agent-commander/*
+                  - arn:aws:s3:::stackery-prod-eu-north-1-agent-commander/*
+                  - arn:aws:s3:::stackery-prod-sa-east-1-agent-commander/*
+        - PolicyName: CreateRegionalECSDefaultClusters
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action: ecs:DescribeClusters
+                Resource: !Sub arn:aws:ecs:*:${AWS::AccountId}:cluster/default
+              - Effect: Allow
+                Action: ecs:CreateCluster
+                Resource: '*'
+              - Effect: Allow
+                Action: iam:CreateServiceLinkedRole
+                Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS
+        - PolicyName: CreateDefaultVPC
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action: ec2:CreateDefaultVpc
+                Resource: '*'
+        - PolicyName: DeleteStackeryCFNNotificationsTopic
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action: sns:DeleteTopic
+                Resource: !Sub arn:aws:sns:*:${AWS::AccountId}:StackeryCloudFormationNotifications
+        - PolicyName: AccessCustomResourceProvisionQueue
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                  - sqs:ReceiveMessage
+                  - sqs:SendMessage
+                Resource: !GetAtt CustomResourceProvisionCheckQueue.Arn
+        - PolicyName: ManageSSLCertificates
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - acm:AddTagsToCertificate
+                  - acm:DeleteCertificate
+                  - acm:DescribeCertificate
+                  - acm:ListTagsForCertificate
+                  - acm:RemoveTagsFromCertificate
+                  - acm:RequestCertificate
+                Resource: '*'
+        - PolicyName: ManageEdgeFunctions
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:CreateFunction
+                  - lambda:UpdateFunctionConfiguration
+                  - lambda:UpdateFunctionCode
+                  - lambda:DeleteFunction
+                Resource: !Sub arn:aws:lambda:*:${AWS::AccountId}:function:*
+              - Effect: Allow
+                Action: iam:PassRole
+                Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/*
+                Condition:
+                  ForAllValues:StringEquals:
+                    iam:PassedToService:
+                      - lambda.amazonaws.com
+                      - edgelambda.amazonaws.com
+              - Effect: Allow
+                Action: s3:GetObject
+                Resource: arn:aws:s3:::stackery-assetsbucket-*/*
+        - PolicyName: DescribeExistingResources
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudformation:DescribeStacks
+                  - dynamodb:DescribeTable
+                  - ec2:DescribeSecurityGroups
+                  - neptune:DescribeDBClusters
+                  - rds:DescribeDBInstances
+                  - rds:DescribeDBClusters
+                  - sqs:GetQueueUrl
+                Resource: '*'
+        - PolicyName: CreateRegionalAgentStackeryCodebuildProjects
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - codebuild:BatchGetProjects
+                  - codebuild:CreateProject
+                  - codebuild:UpdateProject
+                  - codebuild:DeleteProject
+                Resource: !Sub arn:aws:codebuild:*:${AWS::AccountId}:project/Stackery*
+        - PolicyName: CreateRegionalPipelineEventRules
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - events:DeleteRule
+                  - events:ListTagsForResource
+                  - events:PutRule
+                  - events:PutTargets
+                  - events:RemoveTargets
+                Resource:
+                  - !Sub arn:aws:events:*:${AWS::AccountId}:rule/StackeryForwardPipelineEvents
+                  - !Sub arn:aws:events:*:${AWS::AccountId}:rule/stackery-StackeryPipelineRunnerEvents-*
+        - PolicyName: StartStackeryBuilderJobs
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action: codebuild:StartBuild
+                Resource: '*'
+                Condition:
+                  ForAnyValue:StringEquals:
+                    aws:ResourceTag/Stackery Project Type:
+                      - Website Builder
+                      - Docker Image Builder
+      RoleName: stackery-agent-commander-role
+  StackeryAgentCommander:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: stackery-support
+        S3Key: stackery-agent-commander-1.30.4-cj.zip
+      Description: Provisions Stackery custom resources
+      Environment:
+        Variables:
+          AWS_ACCOUNT_ID: !Ref AWS::AccountId
+          PROVISION_CHECK_QUEUE_URL: !Ref CustomResourceProvisionCheckQueue
+      FunctionName: stackery-agent-commander
+      Handler: index.handler
+      MemorySize: 1024
+      Role: !GetAtt StackeryAgentCommanderRole.Arn
+      Runtime: nodejs18.x
+      Timeout: '30'
+  StackeryAgentCommanderProvisionCheckEvents:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      BatchSize: 1
+      EventSourceArn: !GetAtt CustomResourceProvisionCheckQueue.Arn
+      FunctionName: !Ref StackeryAgentCommander
+  StackeryAgentCommanderBootstrap:
+    Type: Custom::StackeryAgentCommanderBootstrap
+    Properties:
+      ServiceToken: !GetAtt StackeryAgentCommander.Arn
+      AgentVersion: 1.30.4-cj
+      Regions: !Ref Regions
+      StackeryEnv: prod

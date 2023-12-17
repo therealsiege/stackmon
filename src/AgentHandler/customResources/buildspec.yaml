@@ -1,0 +1,83 @@
+version: 0.2
+
+phases:
+  install:
+    # This runtime list is pruned at deploy time based on runtimes found in the stack template.
+    # PHP is included if any function's runtime is 'provided'.
+    runtime-versions:
+      dotnet: 3.1
+      golang: latest
+      nodejs: latest
+      java: latest
+      php: latest
+      python: latest
+      ruby: latest
+    commands:
+      - pip install --upgrade awscli
+      - |
+        if echo $REQUIRED_RUNTIMES | grep -sw python2.7; then
+          echo installing python 2.7
+          apt-get update
+          apt-get --assume-yes install python2.7 python-pip
+        fi
+      # Install Stackery CLI
+      - |
+          if [ "$STACKERY_CLI_VERSION" != "" ]; then
+            echo getting cli version $STACKERY_CLI_VERSION
+            echo $STACKERY_CLI_VERSION | grep --silent beta 
+            if [ $? = 0 ]; then
+              bucket=https://beta.cli.stackery.io
+            else
+              bucket=https://ga.cli.stackery.io
+            fi
+            curl -Ls -H 'Cache-Control:no-cache' $bucket/updates/$STACKERY_CLI_VERSION/linux-amd64.gz > stackery.gz
+            gzip -d stackery.gz
+            chmod u+x stackery
+          elif [ "$TEST_S3_BUCKET" != "" ]; then
+            echo getting cli from $TEST_S3_BUCKET
+            aws s3api get-object --bucket $TEST_S3_BUCKET --key stackery stackery
+            chmod u+x stackery
+          else
+            curl -Ls -H 'Cache-Control:no-cache' https://ga.cli.stackery.io/linux.zip > stackery.zip
+            unzip stackery.zip
+            if [ "$USE_CLI_BETA" = true ]; then
+              ./stackery update --beta
+            fi
+          fi
+      - ./stackery version
+
+      # Install SAM CLI
+      - |
+        if [ "$SAM_CLI_VERSION" != "" ]; then
+          pip install --user --upgrade aws-sam-cli==${SAM_CLI_VERSION}
+        else
+          pip install --user --upgrade aws-sam-cli
+        fi
+      - USER_BASE_PATH=$(python -m site --user-base)
+      - PATH=$PATH:$USER_BASE_PATH/bin:$PWD
+      - sam --version
+  build:
+    commands:
+      - |
+          if [ "$CODECOMMIT_URL" != "" ]; then
+            git clone $CODECOMMIT_URL repo
+            cd repo
+            git checkout $GIT_REF
+          else
+            aws s3api get-object --bucket $S3_BUCKET --key $S3_KEY repo.tgz
+            tar --strip-components 1 -xvvzf repo.tgz
+          fi
+      # Provide a value for --deploy-hooks-dir as the cli can't get it using codebuild token
+      # authentication.
+      - export STACKERY_DEPLOY_HOOKS_DIR="$DEPLOYMENT_HOOKS_DIRECTORY"
+      - |
+          if [ "$DEPLOYMENT_HOOKS_DIRECTORY" != "" ]; then
+            chmod u+x "$DEPLOYMENT_HOOKS_DIRECTORY"/*
+          fi
+          if [ -d deployHooks ]; then
+            chmod u+x deployHooks/*
+          fi
+          if [ "$CLOUDFORMATION_STACK_NAME" != "" ]; then
+            CLOUDFORMATION_STACK_NAME_ARG="--cloudformation-stack-name $CLOUDFORMATION_STACK_NAME"
+          fi
+      - stackery deploy --base-dir . -n $STACK_NAME -e $ENVIRONMENT_NAME --template-path "$TEMPLATE_PATH" --deployment-key $DEPLOYMENT_KEY --prepare-only $CLOUDFORMATION_STACK_NAME_ARG
