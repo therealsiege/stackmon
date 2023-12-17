@@ -41,4 +41,4 @@ jobs:
       - name: 🚀 🥞 Stackery
         run: |
           sam build -t infrastructure/template.yaml
-          sam deploy --no-confirm-changeset --no-fail-on-empty-changeset --stack-name stackery-agent-commander --s3-bucket retrohook-build-files --s3-prefix utils/stackery --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM --region us-east-1
+          sam deploy --no-confirm-changeset --no-fail-on-empty-changeset --stack-name stackmon --s3-bucket stackmon-build-files --s3-prefix utils/stackery --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM --region us-east-1
