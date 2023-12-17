@@ -253,18 +253,18 @@ Resources:
   StackeryAgentCommander:
     Type: AWS::Lambda::Function
     Properties:
-      CodeUri: ../src/AgentHandler
-      Description: Provisions Stackery custom resources
-      Environment:
-        Variables:
-          AWS_ACCOUNT_ID: !Ref AWS::AccountId
-          PROVISION_CHECK_QUEUE_URL: !Ref CustomResourceProvisionCheckQueue
       FunctionName: Stackery-agent-commander
+      Description: Provisions Stackery custom resources
+      CodeUri: ../src/AgentHandler
       Handler: index.handler
       MemorySize: 1024
       Role: !GetAtt StackeryAgentCommanderRole.Arn
       Runtime: nodejs18.x
       Timeout: '30'
+      Environment:
+        Variables:
+          AWS_ACCOUNT_ID: !Ref AWS::AccountId
+          PROVISION_CHECK_QUEUE_URL: !Ref CustomResourceProvisionCheckQueue
   StackeryAgentCommanderProvisionCheckEvents:
     Type: AWS::Lambda::EventSourceMapping
     Properties:
@@ -275,6 +275,6 @@ Resources:
     Type: Custom::StackeryAgentCommanderBootstrap
     Properties:
       ServiceToken: !GetAtt StackeryAgentCommander.Arn
-      AgentVersion: 1.30.4-cj
+      AgentVersion: 2.0.1
       Regions: !Ref Regions
       StackeryEnv: prod
