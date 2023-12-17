@@ -1,4 +1,4 @@
-name: 🥞 Stackery Agent Commander
+name: 🥞 Stackmon
 on:
   push:
     branches:
