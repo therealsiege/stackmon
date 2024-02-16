@@ -1,0 +1,17 @@
+{
+  "name": "licenses",
+  "version": "1.0.0",
+  "description": "",
+  "main": "gen-licenses.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@octokit/rest": "^18.5.3",
+    "license-checker-rseidelsohn": "^1.2.2",
+    "node-fetch": "^2.6.1",
+    "yargs": "^17.0.1"
+  }
+}

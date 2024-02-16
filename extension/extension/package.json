@@ -1,0 +1,83 @@
+{
+	"name": "stackery",
+	"displayName": "Stackery Serverless Tools",
+	"description": "CloudFormation architecture editing + local debugging and development of any AWS Lambda function",
+	"homepage": "https://www.stackery.io",
+	"icon": "media/icon.png",
+	"version": "1.1.4",
+	"publisher": "stackery",
+	"engines": {
+		"vscode": "^1.33.0"
+	},
+	"categories": [
+		"Other"
+	],
+	"keywords": [
+		"serverless",
+		"serverless framework",
+		"aws",
+		"lambda",
+		"cloudformation"
+	],
+	"activationEvents": [
+		"onCommand:extension.edit",
+		"onCommand:extension.logout"
+	],
+	"main": "./extension.js",
+	"contributes": {
+		"commands": [
+			{
+				"command": "extension.edit",
+				"title": "Edit With Stackery",
+				"category": "Stackery",
+				"icon": {
+					"light": "./media/stackery-navy.svg",
+					"dark": "./media/stackery-teal.svg"
+				}
+			},
+			{
+				"command": "extension.logout",
+				"title": "Log out of Stackery Editor",
+				"category": "Stackery"
+			}
+		],
+		"menus": {
+			"commandPalette": [
+				{
+					"command": "extension.edit",
+					"when": "editorLangId == yaml"
+				}
+			],
+			"editor/title": [
+				{
+					"command": "extension.edit",
+					"when": "editorLangId == yaml",
+					"group": "navigation"
+				}
+			],
+			"explorer/context": [
+				{
+					"command": "extension.edit",
+					"when": "resourceLangId == yaml",
+					"group": "navigation"
+				}
+			]
+		}
+	},
+	"scripts": {
+		"test": "node test/runTest.js"
+	},
+	"devDependencies": {
+		"@types/mocha": "^2.2.42",
+		"@types/node": "^10.12.21",
+		"@types/vscode": "^1.33.0",
+		"eslint": "^5.13.0",
+		"typescript": "^3.3.1"
+	},
+	"dependencies": {
+		"hasbin": "^1.2.3",
+		"request": "^2.88.0",
+		"semver": "^6.0.0",
+		"vscode-test": "^1.5.2"
+	}
+}
